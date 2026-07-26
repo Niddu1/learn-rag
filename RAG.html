@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RAG Simulator</title>
+
+<style>
+*{
+    box-sizing:border-box;
+    font-family:Inter,Segoe UI,Arial,sans-serif;
+}
+
+body{
+    margin:0;
+    background:#0b1020;
+    color:#e8ecff;
+}
+
+header{
+    padding:25px;
+    text-align:center;
+    background:linear-gradient(135deg,#151b3d,#252b62);
+}
+
+h1{
+    margin:0;
+    font-size:32px;
+}
+
+.subtitle{
+    color:#b9c2ff;
+    margin-top:8px;
+}
+
+.container{
+    max-width:1200px;
+    margin:auto;
+    padding:25px;
+}
+
+.card{
+    background:#151b31;
+    border:1px solid #293158;
+    border-radius:18px;
+    padding:20px;
+    margin-bottom:20px;
+    box-shadow:0 10px 30px #0005;
+}
+
+.step{
+    display:flex;
+    gap:20px;
+    align-items:center;
+}
+
+.number{
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    background:#6366f1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+}
+
+button{
+    background:#6366f1;
+    color:white;
+    border:none;
+    padding:12px 25px;
+    border-radius:10px;
+    cursor:pointer;
+    font-size:16px;
+}
+
+button:hover{
+    background:#818cf8;
+}
+
+input{
+    width:100%;
+    padding:14px;
+    border-radius:10px;
+    border:none;
+    background:#0f172a;
+    color:white;
+    margin:10px 0;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+    gap:15px;
+}
+
+.box{
+    background:#0f172a;
+    padding:15px;
+    border-radius:12px;
+    border:1px solid #334155;
+}
+
+.highlight{
+    border:2px solid #22c55e;
+}
+
+.progress{
+    height:10px;
+    background:#1e293b;
+    border-radius:20px;
+    overflow:hidden;
+}
+
+.bar{
+    height:100%;
+    width:0%;
+    background:#22c55e;
+    transition:1s;
+}
+
+pre{
+    white-space:pre-wrap;
+    color:#a5b4fc;
+}
+
+.score{
+    color:#22c55e;
+    font-weight:bold;
+}
+
+.hidden{
+    display:none;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<header>
+<h1>🤖 RAG Simulator</h1>
+<div class="subtitle">
+Retrieval Augmented Generation explained visually
+</div>
+</header>
+
+
+<div class="container">
+
+
+<div class="card">
+<h2>Ask your AI</h2>
+
+<input id="query" 
+value="What are the benefits of solar energy?">
+
+<button onclick="runRAG()">Run RAG Pipeline</button>
+
+<div class="progress">
+<div id="bar" class="bar"></div>
+</div>
+
+</div>
+
+
+<div id="pipeline">
+
+
+<div class="card step">
+<div class="number">1</div>
+<div>
+<h3>User Query</h3>
+<p id="userQuery"></p>
+</div>
+</div>
+
+
+<div class="card step">
+<div class="number">2</div>
+<div>
+<h3>Knowledge Base</h3>
+
+<div class="grid">
+
+<div class="box">
+📄 Solar Energy Guide<br>
+"Solar panels convert sunlight into electricity..."
+</div>
+
+<div class="box">
+📄 Wind Energy Report<br>
+"Wind turbines generate power from air movement..."
+</div>
+
+
+<div class="box">
+📄 Battery Storage Paper<br>
+"Energy storage helps renewable sources..."
+</div>
+
+
+</div>
+</div>
+</div>
+
+
+
+
+<div class="card step">
+<div class="number">3</div>
+
+<div>
+<h3>Chunking</h3>
+
+<p>
+Documents are split into smaller pieces so retrieval becomes easier.
+</p>
+
+<div id="chunks"></div>
+
+</div>
+</div>
+
+
+
+<div class="card step">
+<div class="number">4</div>
+
+<div>
+<h3>Embedding Generation</h3>
+
+<p>
+Text is converted into numerical vectors.
+The LLM does not search words. It searches meanings.
+</p>
+
+<div id="embedding"></div>
+
+</div>
+</div>
+
+
+
+<div class="card step">
+<div class="number">5</div>
+
+<div>
+<h3>Vector Database</h3>
+
+<p>
+Embeddings are stored and compared mathematically.
+</p>
+
+<div id="vectors"></div>
+
+</div>
+</div>
+
+
+
+<div class="card step">
+<div class="number">6</div>
+
+<div>
+<h3>Retriever</h3>
+
+<p>
+The system finds the most relevant documents.
+</p>
+
+<div id="retrieval"></div>
+
+</div>
+</div>
+
+
+
+
+<div class="card step">
+<div class="number">7</div>
+
+<div>
+<h3>Augmentation</h3>
+
+<p>
+Retrieved information is added to the original prompt.</p>
+
+<pre id="augmented"></pre>
+
+</div>
+</div>
+
+
+
+<div class="card step">
+<div class="number">8</div>
+
+<div>
+<h3>LLM Generation</h3>
+
+<p>
+The LLM now answers using the retrieved context.</p>
+
+<div class="box" id="answer"></div>
+
+</div>
+</div>
+
+
+</div>
+
+</div>
+
+
+
+
+<script>
+
+function sleep(ms){
+return new Promise(resolve=>setTimeout(resolve,ms));
+}
+
+
+async function runRAG(){
+
+let query=document.getElementById("query").value;
+
+let bar=document.getElementById("bar");
+
+document.getElementById("userQuery").innerHTML=query;
+
+
+let progress=0;
+
+
+function update(){
+progress+=12;
+bar.style.width=progress+"%";
+}
+
+
+
+await sleep(500);
+update();
+
+
+document.getElementById("chunks").innerHTML=`
+
+<div class="box">
+Chunk 1:
+Solar panels convert sunlight into electricity.
+</div>
+
+<br>
+
+<div class="box">
+Chunk 2:
+Renewable energy reduces carbon emissions.
+</div>
+
+`;
+
+await sleep(800);
+update();
+
+
+document.getElementById("embedding").innerHTML=`
+
+Vector representation:
+
+[0.23, 0.71, 0.45, 0.89, 0.12]
+
+<br><br>
+
+Meaning:
+"solar + renewable + electricity"
+
+`;
+
+await sleep(800);
+update();
+
+
+
+document.getElementById("vectors").innerHTML=`
+
+<div class="box">
+Solar Chunk Vector<br>
+[0.23,0.71,0.45] 
+</div>
+
+<br>
+
+<div class="box">
+Wind Chunk Vector<br>
+[0.11,0.21,0.77]
+</div>
+
+`;
+
+await sleep(800);
+update();
+
+
+
+document.getElementById("retrieval").innerHTML=`
+
+<div class="box highlight">
+
+Retrieved:
+
+Solar Energy Guide
+
+Similarity Score:
+<span class="score">
+94%
+</span>
+
+</div>
+
+
+<br>
+
+<div class="box">
+
+Battery Storage Paper
+
+Similarity Score:
+<span class="score">
+72%
+</span>
+
+</div>
+
+`;
+
+await sleep(800);
+update();
+
+
+
+document.getElementById("augmented").innerHTML=
+
+`
+SYSTEM:
+Answer using the following context.
+
+CONTEXT:
+
+Solar panels convert sunlight into electricity.
+Renewable energy reduces carbon emissions.
+
+
+QUESTION:
+
+${query}
+
+`;
+
+await sleep(800);
+update();
+
+
+
+document.getElementById("answer").innerHTML=
+
+`
+☀️ Solar energy provides electricity by converting sunlight into power using solar panels.
+
+Benefits include:
+
+✓ Renewable energy source
+✓ Lower carbon emissions
+✓ Reduced dependence on fossil fuels
+✓ Can reduce electricity costs over time
+
+`;
+
+bar.style.width="100%";
+
+
+}
+
+
+</script>
+
+</body>
+</html>
